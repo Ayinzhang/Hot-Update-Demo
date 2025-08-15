@@ -29,16 +29,24 @@ MonoBehaviour:
       AssetTags: 
       ActiveRuleName: EnableGroup
       Collectors:
-      - CollectPath: Assets/Scenes/DemoScene.unity
-        CollectorGUID: cc4f2c03be6ac504bbc6d9fd68ed60ef
+      - CollectPath: Assets/Scenes
+        CollectorGUID: 9c53962885c2c4f449125a979d6ad240
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackDirectory
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
-      - CollectPath: Assets/Cube.prefab
-        CollectorGUID: 27ea4393692dd8a4c93d35de91442213
+      - CollectPath: Assets/Arts
+        CollectorGUID: ad78aa7c7adff9345ad5d7dda22323a3
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackDirectory
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 
+      - CollectPath: Assets/StreamingAssets/HotUpdate.dll.bytes
+        CollectorGUID: 3ead9cbf5d4683b4ca961724b228fdc6
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackDirectory

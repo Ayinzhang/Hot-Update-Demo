@@ -12,7 +12,7 @@ using HybridCLR;
 public class HotUpdateManager : MonoBehaviour
 {
     public EPlayMode _playMode = EPlayMode.EditorSimulateMode;
-    public string defaultHostServer = "http://127.0.0.1/CDN/Android/v1.0", fallbackHostServer = "http://127.0.0.1/CDN/Android/v1.0", loadSceneName;
+    public string defaultHostServer, fallbackHostServer, loadSceneName;
 
     ResourcePackage package;
     void Start()
@@ -100,25 +100,6 @@ public class HotUpdateManager : MonoBehaviour
         // 更新资源清单
         var updateOperation = package.UpdatePackageManifestAsync(packageVersion);
         yield return updateOperation;
-
-        if (updateOperation.Status == EOperationStatus.Succeed)
-        {
-            AssetHandle handle = package.LoadAssetAsync<GameObject>("Assets/Cube.prefab");
-            handle.Completed += (assetHandle) =>
-            {
-                if (assetHandle.Status == EOperationStatus.Succeed)
-                {
-                    GameObject playerPrefab = assetHandle.AssetObject as GameObject;
-                    Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-                }
-                else
-                {
-                    Debug.LogError("资源加载失败！");
-                }
-            };
-            Debug.Log("资源清单更新成功");
-        }
-        else Debug.LogError("资源清单更新失败：" + updateOperation.Error);
 
         // 开始下载缺失资源
         yield return Download();
@@ -316,7 +297,9 @@ public class HotUpdateManager : MonoBehaviour
 #if !UNITY_EDITOR
         _hotUpdateAss = Assembly.Load(ReadBytesFromStreamingAssets("HotUpdate.dll.bytes"));
 #else
-        _hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
+        AssetHandle handle = package.LoadAssetSync<TextAsset>("Assets/Scripts/HotUpdate/HotUpdate.dll.bytes");
+        TextAsset textAsset = handle.AssetObject as TextAsset; _hotUpdateAss = Assembly.Load(textAsset.bytes);
+        //_hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
 #endif
         Type entryType = _hotUpdateAss.GetType("GameManager");
         entryType.GetMethod("Init").Invoke(null, null);
