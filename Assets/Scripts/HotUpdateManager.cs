@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -14,14 +13,24 @@ public class HotUpdateManager : MonoBehaviour
     public EPlayMode _playMode = EPlayMode.EditorSimulateMode;
     public string defaultHostServer, fallbackHostServer, loadSceneName;
 
-    ResourcePackage package;
+    Assembly _hotUpdateAss; ResourcePackage package; 
+    Dictionary<string, byte[]> s_assetDatas = new Dictionary<string, byte[]>();
+    List<string> assets { get; } = new List<string>() { "mscorlib.dll.bytes", "System.dll.bytes", "System.Core.dll.bytes", };
+
+    internal class RemoteServices : IRemoteServices
+    {
+        readonly string _defaultHostServer, _fallbackHostServer;
+        public RemoteServices(string defaultHostServer, string fallbackHostServer) { _defaultHostServer = defaultHostServer; _fallbackHostServer = fallbackHostServer; }
+        public string GetRemoteFallbackURL(string fileName) { return $"{_fallbackHostServer}/{fileName}"; }
+        public string GetRemoteMainURL(string fileName) { return $"{_defaultHostServer}/{fileName}"; }
+    }
     void Start()
     {
         YooAssets.Initialize(); package = YooAssets.CreatePackage("DefaultPackage"); YooAssets.SetDefaultPackage(package);
-        StartCoroutine(InitPackage()); StartCoroutine(DownLoadAssets());
+        StartCoroutine(InitHotUpdate());
     }
 
-    IEnumerator InitPackage()
+    IEnumerator InitHotUpdate()
     {
         InitializationOperation initOperation = null;
 
@@ -38,7 +47,8 @@ public class HotUpdateManager : MonoBehaviour
                 break;
 
             case EPlayMode.OfflinePlayMode:
-                // 单机模式，使用内置资源（APK 内部或 StreamingAssets）
+            // 单机模式，使用内置资源（APK 内部或 StreamingAssets）
+            offline:
                 var buildinFileSystemParams = FileSystemParameters.CreateDefaultBuildinFileSystemParameters();
                 var offinitParameters = new OfflinePlayModeParameters();
                 offinitParameters.BuildinFileSystemParameters = buildinFileSystemParams;
@@ -69,18 +79,29 @@ public class HotUpdateManager : MonoBehaviour
 
                 initOperation = package.InitializeAsync(webinitParameters);
                 break;
+
+            case EPlayMode.CustomPlayMode:
+                // 自定义偏单机弱联网模式，无网可游玩有网可更新
+                IRemoteServices customServices = new RemoteServices(defaultHostServer, fallbackHostServer);
+
+                var cutominitParameters = new HostPlayModeParameters();
+                cutominitParameters.BuildinFileSystemParameters = FileSystemParameters.CreateDefaultBuildinFileSystemParameters();
+                cutominitParameters.CacheFileSystemParameters = FileSystemParameters.CreateDefaultCacheFileSystemParameters(customServices);
+                initOperation = package.InitializeAsync(cutominitParameters); yield return initOperation;
+
+                if (initOperation.Status == EOperationStatus.Succeed) goto hotUpdate;
+                else { Debug.Log("联网尝试失败，启用单机模式"); goto offline; }
+                break;
         }
 
         // 等待初始化完成
-        yield return initOperation;
-
-        Debug.Log("初始化结果：" + initOperation.Status);
+        yield return initOperation; Debug.Log("初始化结果：" + initOperation.Status);
         if (initOperation.Status != EOperationStatus.Succeed)
         {
             Debug.LogError($"初始化失败: {initOperation.Error}");
             yield break;
         }
-
+    hotUpdate:
         // 请求最新的资源版本信息
         var requestOperation = package.RequestPackageVersionAsync();
         Debug.Log("正在请求最新的资源版本...");
@@ -92,157 +113,54 @@ public class HotUpdateManager : MonoBehaviour
             packageVersion = requestOperation.PackageVersion;
             Debug.Log($"获取最新资源版本成功: {packageVersion}");
         }
-        else
-        {
-            Debug.LogError("获取资源版本失败：" + requestOperation.Error);
-        }
-
+        else { Debug.LogError("获取资源版本失败：" + requestOperation.Error); }
         // 更新资源清单
-        var updateOperation = package.UpdatePackageManifestAsync(packageVersion);
-        yield return updateOperation;
-
+        yield return package.UpdatePackageManifestAsync(packageVersion);
         // 开始下载缺失资源
-        yield return Download();
+        yield return DownloadAssets();
     }
 
     /// <summary>
     /// 下载缺失的远程资源
     /// </summary>
-    IEnumerator Download()
+    IEnumerator DownloadAssets()
     {
-        int downloadingMaxNum = 10;   // 最大并发下载数
-        int failedTryAgain = 3;       // 下载失败重试次数
-
-        var downloader = package.CreateResourceDownloader(downloadingMaxNum, failedTryAgain);
+        var downloader = package.CreateResourceDownloader(10, 3); //最大并发下载数，下载失败重试次数
 
         if (downloader.TotalDownloadCount == 0)
         {
             Debug.Log("没有需要下载的资源");
-            yield return EnterGame(); // 直接进入游戏
+            yield return InitScripts(); // 直接进入游戏
         }
-
-        // 注册回调函数
-        downloader.DownloadFinishCallback = OnDownloadFinishFunction;
-        downloader.DownloadErrorCallback = OnDownloadErrorFunction;
-        downloader.DownloadUpdateCallback = OnDownloadUpdateFunction;
-        downloader.DownloadFileBeginCallback = OnDownloadFileBeginFunction;
-
-        // 开始下载
-        downloader.BeginDownload();
-        yield return downloader;
-
-        if (downloader.Status == EOperationStatus.Succeed)
-        {
-            Debug.Log("资源下载成功");
-            yield return EnterGame();
-        }
-        else
-        {
-            Debug.LogError("资源下载失败");
-        }
+        else 
+        { 
+            // 注册回调函数
+            downloader.DownloadFinishCallback = OnDownloadFinishFunction; 
+            downloader.DownloadErrorCallback = OnDownloadErrorFunction;
+            downloader.DownloadUpdateCallback = OnDownloadUpdateFunction; 
+            downloader.DownloadFileBeginCallback = OnDownloadFileBeginFunction;
+            // 开始下载
+            downloader.BeginDownload(); yield return downloader;
+            if (downloader.Status == EOperationStatus.Succeed) { Debug.Log("资源下载成功"); yield return InitScripts(); }
+            else Debug.LogError("资源下载失败");
+        } 
     }
 
-    /// <summary>
-    /// 进入游戏场景
-    /// </summary>
-    IEnumerator EnterGame()
-    {
-        SceneHandle handle = package.LoadSceneAsync(loadSceneName);
-        yield return handle;
-    }
-
-    #region 下载回调函数
-
-    /// <summary>
-    /// 下载进度更新回调
-    /// </summary>
     void OnDownloadUpdateFunction(DownloadUpdateData data)
     {
         float progress = (float)data.CurrentDownloadBytes / (float)data.TotalDownloadBytes;
         Debug.Log($"总大小: {data.TotalDownloadBytes / 1024.0f / 1024} MB | 已下载: {data.CurrentDownloadBytes / 1024.0f / 1024} MB | 进度: {progress * 100:F2}%");
     }
+    void OnDownloadFileBeginFunction(DownloadFileData data) { Debug.Log($"开始下载文件：{data.FileName}，大小：{data.FileSize / 1024.0f} KB"); }
+    void OnDownloadErrorFunction(DownloadErrorData data) { Debug.LogError("下载错误"); }
+    void OnDownloadFinishFunction(DownloaderFinishData data) { Debug.Log("下载完成"); }
 
-    /// <summary>
-    /// 开始下载某个文件时触发
-    /// </summary>
-    void OnDownloadFileBeginFunction(DownloadFileData data)
+    IEnumerator InitScripts()
     {
-        Debug.Log($"开始下载文件：{data.FileName}，大小：{data.FileSize / 1024.0f} KB");
-    }
-
-    /// <summary>
-    /// 下载错误时触发
-    /// </summary>
-    void OnDownloadErrorFunction(DownloadErrorData data)
-    {
-        Debug.LogError("下载错误");
-    }
-
-    /// <summary>
-    /// 下载结束时触发（无论成功或失败）
-    /// </summary>
-    void OnDownloadFinishFunction(DownloaderFinishData data)
-    {
-        Debug.Log("下载完成");
-    }
-
-    #endregion
-    internal class RemoteServices : IRemoteServices
-    {
-
-        readonly string _defaultHostServer;
-        readonly string _fallbackHostServer;
-
-        public RemoteServices(string defaultHostServer, string fallbackHostServer)
-        {
-            _defaultHostServer = defaultHostServer;
-            _fallbackHostServer = fallbackHostServer;
-        }
-
-
-        public string GetRemoteFallbackURL(string fileName)
-        {
-            return $"{_fallbackHostServer}/{fileName}";
-        }
-
-        public string GetRemoteMainURL(string fileName)
-        {
-            return $"{_defaultHostServer}/{fileName}";
-        }
-    }
-
-    #region download assets
-
-    static Dictionary<string, byte[]> s_assetDatas = new Dictionary<string, byte[]>();
-
-    public static byte[] ReadBytesFromStreamingAssets(string dllName)
-    {
-        return s_assetDatas[dllName];
-    }
-
-    string GetWebRequestPath(string asset)
-    {
-        var path = $"{Application.streamingAssetsPath}/{asset}";
-        if (!path.Contains("://")) path = "file://" + path;
-        return path;
-    }
-    static List<string> AOTMetaAssemblyFiles { get; } = new List<string>()
-    {
-        "mscorlib.dll.bytes", "System.dll.bytes", "System.Core.dll.bytes",
-    };
-
-    IEnumerator DownLoadAssets()
-    {
-        var assets = new List<string>
-        {
-            "prefabs",
-            "HotUpdate.dll.bytes",
-        }.Concat(AOTMetaAssemblyFiles);
-
         foreach (var asset in assets)
         {
-            string dllPath = GetWebRequestPath(asset);
-            Debug.Log($"start download asset:{dllPath}");
+            string dllPath = $"file://{Application.streamingAssetsPath}/hybridclr/{asset}";
+            Debug.Log($"start DownloadAssets asset:{dllPath}");
             UnityWebRequest www = UnityWebRequest.Get(dllPath);
             yield return www.SendWebRequest();
 
@@ -266,52 +184,22 @@ public class HotUpdateManager : MonoBehaviour
             }
         }
 
-        InitGame();
-    }
-
-    #endregion
-
-    static Assembly _hotUpdateAss;
-
-    /// <summary>
-    /// 为aot assembly加载原始metadata， 这个代码放aot或者热更新都行。
-    /// 一旦加载后，如果AOT泛型函数对应native实现不存在，则自动替换为解释模式执行
-    /// </summary>
-    static void LoadMetadataForAOTAssemblies()
-    {
-        /// 注意，补充元数据是给AOT dll补充元数据，而不是给热更新dll补充元数据。
-        /// 热更新dll不缺元数据，不需要补充，如果调用LoadMetadataForAOTAssembly会返回错误
         HomologousImageMode mode = HomologousImageMode.SuperSet;
-        foreach (var aotDllName in AOTMetaAssemblyFiles)
+        foreach (var aotDllName in assets)
         {
-            byte[] dllBytes = ReadBytesFromStreamingAssets(aotDllName);
+            byte[] dllBytes = s_assetDatas[aotDllName];
             // 加载assembly对应的dll，会自动为它hook。一旦aot泛型函数的native函数不存在，用解释器版本代码
             LoadImageErrorCode err = RuntimeApi.LoadMetadataForAOTAssembly(dllBytes, mode);
             Debug.Log($"LoadMetadataForAOTAssembly:{aotDllName}. mode:{mode} ret:{err}");
         }
-    }
-
-    void InitGame()
-    {
-        LoadMetadataForAOTAssemblies();
 #if !UNITY_EDITOR
-        _hotUpdateAss = Assembly.Load(ReadBytesFromStreamingAssets("HotUpdate.dll.bytes"));
-#else
-        AssetHandle handle = package.LoadAssetSync<TextAsset>("Assets/Scripts/HotUpdate/HotUpdate.dll.bytes");
+        //_hotUpdateAss = Assembly.Load(File.ReadAllBytes($"{Application.streamingAssetsPath}/hybridclr/HotUpdate.dll.bytes"));
+        AssetHandle handle = package.LoadAssetAsync<TextAsset>("Assets/Scripts/HotUpdate.dll.bytes");
         TextAsset textAsset = handle.AssetObject as TextAsset; _hotUpdateAss = Assembly.Load(textAsset.bytes);
-        //_hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
+#else
+        _hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
 #endif
-        Type entryType = _hotUpdateAss.GetType("GameManager");
-        entryType.GetMethod("Init").Invoke(null, null);
-
-        //Run_InstantiateComponentByAsset();
-    }
-
-    static void Run_InstantiateComponentByAsset()
-    {
-        // 通过实例化assetbundle中的资源，还原资源上的热更新脚本
-        AssetBundle ab = AssetBundle.LoadFromMemory(ReadBytesFromStreamingAssets("prefabs"));
-        GameObject cube = ab.LoadAsset<GameObject>("Cube");
-        GameObject.Instantiate(cube);
+        Debug.Log("准备进入游戏场景: " + loadSceneName);
+        yield return new WaitForSeconds(5f); yield return package.LoadSceneAsync(loadSceneName);
     }
 }

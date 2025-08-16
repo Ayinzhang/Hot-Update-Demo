@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4455294188734403793}
   - component: {fileID: 2269002695724917042}
   - component: {fileID: 562791278617195867}
-  - component: {fileID: 6003190883904285415}
+  - component: {fileID: 8081279275305623384}
   m_Layer: 5
   m_Name: Cat
   m_TagString: Untagged
@@ -73,7 +73,7 @@ MonoBehaviour:
     y: 0
     width: 1
     height: 1
---- !u!114 &6003190883904285415
+--- !u!114 &8081279275305623384
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

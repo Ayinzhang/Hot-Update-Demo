@@ -29,14 +29,6 @@ MonoBehaviour:
       AssetTags: 
       ActiveRuleName: EnableGroup
       Collectors:
-      - CollectPath: Assets/Scenes
-        CollectorGUID: 9c53962885c2c4f449125a979d6ad240
-        CollectorType: 0
-        AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
-        FilterRuleName: CollectAll
-        AssetTags: 
-        UserData: 
       - CollectPath: Assets/Arts
         CollectorGUID: ad78aa7c7adff9345ad5d7dda22323a3
         CollectorType: 0
@@ -45,8 +37,16 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
-      - CollectPath: Assets/StreamingAssets/HotUpdate.dll.bytes
-        CollectorGUID: 3ead9cbf5d4683b4ca961724b228fdc6
+      - CollectPath: Assets/Scenes
+        CollectorGUID: 9c53962885c2c4f449125a979d6ad240
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackDirectory
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 
+      - CollectPath: Assets/Scripts/HotUpdate.dll.bytes
+        CollectorGUID: fc932bd08f4dcf04dad79735510c6d4d
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackDirectory
