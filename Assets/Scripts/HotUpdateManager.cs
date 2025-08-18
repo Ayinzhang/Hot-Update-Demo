@@ -37,7 +37,7 @@ public class HotUpdateManager : MonoBehaviour
         switch (_playMode)
         {
             case EPlayMode.EditorSimulateMode:
-                // ±à¼­Æ÷Ä£Ê½ÏÂÊ¹ÓÃÄ£Äâ¹¹½¨µÄ×ÊÔ´Ä¿Â¼
+                // ç¼–è¾‘å™¨æ¨¡å¼ä¸‹ä½¿ç”¨æ¨¡æ‹Ÿæ„å»ºçš„èµ„æºç›®å½•
                 var buildResult = EditorSimulateModeHelper.SimulateBuild("DefaultPackage");
                 var packageRoot = buildResult.PackageRootDirectory;
                 var editorFileSystemParams = FileSystemParameters.CreateDefaultEditorFileSystemParameters(packageRoot);
@@ -47,7 +47,7 @@ public class HotUpdateManager : MonoBehaviour
                 break;
 
             case EPlayMode.OfflinePlayMode:
-            // µ¥»úÄ£Ê½£¬Ê¹ÓÃÄÚÖÃ×ÊÔ´£¨APK ÄÚ²¿»ò StreamingAssets£©
+            // å•æœºæ¨¡å¼ï¼Œä½¿ç”¨å†…ç½®èµ„æºï¼ˆAPK å†…éƒ¨æˆ– StreamingAssetsï¼‰
             offline:
                 var buildinFileSystemParams = FileSystemParameters.CreateDefaultBuildinFileSystemParameters();
                 var offinitParameters = new OfflinePlayModeParameters();
@@ -56,7 +56,7 @@ public class HotUpdateManager : MonoBehaviour
                 break;
 
             case EPlayMode.HostPlayMode:
-                // Ö÷»úÄ£Ê½£¬´ÓÔ¶³Ì·şÎñÆ÷ÏÂÔØ×ÊÔ´£¬²¢»º´æÔÚ±¾µØ
+                // ä¸»æœºæ¨¡å¼ï¼Œä»è¿œç¨‹æœåŠ¡å™¨ä¸‹è½½èµ„æºï¼Œå¹¶ç¼“å­˜åœ¨æœ¬åœ°
                 IRemoteServices remoteServices = new RemoteServices(defaultHostServer, fallbackHostServer);
                 var cacheFileSystemParams = FileSystemParameters.CreateDefaultCacheFileSystemParameters(remoteServices);
                 var hostbuildinFileSystemParams = FileSystemParameters.CreateDefaultBuildinFileSystemParameters();
@@ -68,10 +68,10 @@ public class HotUpdateManager : MonoBehaviour
                 break;
 
             case EPlayMode.WebPlayMode:
-                // Web Ä£Ê½£¬ÊÊÓÃÓÚ WebGL Æ½Ì¨
+                // Web æ¨¡å¼ï¼Œé€‚ç”¨äº WebGL å¹³å°
                 IRemoteServices webremoteServices = new RemoteServices(defaultHostServer, fallbackHostServer);
                 var webServerFileSystemParams = FileSystemParameters.CreateDefaultWebServerFileSystemParameters();
-                var webRemoteFileSystemParams = FileSystemParameters.CreateDefaultWebRemoteFileSystemParameters(webremoteServices); //Ö§³Ö¿çÓòÏÂÔØ
+                var webRemoteFileSystemParams = FileSystemParameters.CreateDefaultWebRemoteFileSystemParameters(webremoteServices); //æ”¯æŒè·¨åŸŸä¸‹è½½
 
                 var webinitParameters = new WebPlayModeParameters();
                 webinitParameters.WebServerFileSystemParameters = webServerFileSystemParams;
@@ -81,7 +81,7 @@ public class HotUpdateManager : MonoBehaviour
                 break;
 
             case EPlayMode.CustomPlayMode:
-                // ×Ô¶¨ÒåÆ«µ¥»úÈõÁªÍøÄ£Ê½£¬ÎŞÍø¿ÉÓÎÍæÓĞÍø¿É¸üĞÂ
+                // è‡ªå®šä¹‰å¼±è”ç½‘æ¨¡å¼ï¼Œæ— ç½‘å¯æ¸¸ç©æœ‰ç½‘å¯æ›´æ–°
                 IRemoteServices customServices = new RemoteServices(defaultHostServer, fallbackHostServer);
 
                 var cutominitParameters = new HostPlayModeParameters();
@@ -90,70 +90,66 @@ public class HotUpdateManager : MonoBehaviour
                 initOperation = package.InitializeAsync(cutominitParameters); yield return initOperation;
 
                 if (initOperation.Status == EOperationStatus.Succeed) goto hotUpdate;
-                else { Debug.Log("ÁªÍø³¢ÊÔÊ§°Ü£¬ÆôÓÃµ¥»úÄ£Ê½"); goto offline; }
-                break;
+                else { Debug.Log("è”ç½‘å°è¯•å¤±è´¥ï¼Œå¯ç”¨å•æœºæ¨¡å¼"); goto offline; }
         }
 
-        // µÈ´ı³õÊ¼»¯Íê³É
-        yield return initOperation; Debug.Log("³õÊ¼»¯½á¹û£º" + initOperation.Status);
+        // ç­‰å¾…åˆå§‹åŒ–å®Œæˆ
+        yield return initOperation; Debug.Log("åˆå§‹åŒ–ç»“æœï¼š" + initOperation.Status);
         if (initOperation.Status != EOperationStatus.Succeed)
         {
-            Debug.LogError($"³õÊ¼»¯Ê§°Ü: {initOperation.Error}");
+            Debug.LogError($"åˆå§‹åŒ–å¤±è´¥: {initOperation.Error}");
             yield break;
         }
     hotUpdate:
-        // ÇëÇó×îĞÂµÄ×ÊÔ´°æ±¾ĞÅÏ¢
+        // è¯·æ±‚æœ€æ–°çš„èµ„æºç‰ˆæœ¬ä¿¡æ¯
         var requestOperation = package.RequestPackageVersionAsync();
-        Debug.Log("ÕıÔÚÇëÇó×îĞÂµÄ×ÊÔ´°æ±¾...");
+        Debug.Log("æ­£åœ¨è¯·æ±‚æœ€æ–°çš„èµ„æºç‰ˆæœ¬...");
         yield return requestOperation;
 
         string packageVersion = "";
         if (requestOperation.Status == EOperationStatus.Succeed)
         {
             packageVersion = requestOperation.PackageVersion;
-            Debug.Log($"»ñÈ¡×îĞÂ×ÊÔ´°æ±¾³É¹¦: {packageVersion}");
+            Debug.Log($"è·å–æœ€æ–°èµ„æºç‰ˆæœ¬æˆåŠŸ: {packageVersion}");
         }
-        else { Debug.LogError("»ñÈ¡×ÊÔ´°æ±¾Ê§°Ü£º" + requestOperation.Error); }
-        // ¸üĞÂ×ÊÔ´Çåµ¥
+        else { Debug.LogError("è·å–èµ„æºç‰ˆæœ¬å¤±è´¥ï¼š" + requestOperation.Error); }
+        // æ›´æ–°èµ„æºæ¸…å•
         yield return package.UpdatePackageManifestAsync(packageVersion);
-        // ¿ªÊ¼ÏÂÔØÈ±Ê§×ÊÔ´
+        // å¼€å§‹ä¸‹è½½ç¼ºå¤±èµ„æº
         yield return DownloadAssets();
     }
 
-    /// <summary>
-    /// ÏÂÔØÈ±Ê§µÄÔ¶³Ì×ÊÔ´
-    /// </summary>
     IEnumerator DownloadAssets()
     {
-        var downloader = package.CreateResourceDownloader(10, 3); //×î´ó²¢·¢ÏÂÔØÊı£¬ÏÂÔØÊ§°ÜÖØÊÔ´ÎÊı
+        var downloader = package.CreateResourceDownloader(10, 3); //æœ€å¤§å¹¶å‘ä¸‹è½½æ•°ï¼Œä¸‹è½½å¤±è´¥é‡è¯•æ¬¡æ•°
 
         if (downloader.TotalDownloadCount == 0)
         {
-            Debug.Log("Ã»ÓĞĞèÒªÏÂÔØµÄ×ÊÔ´");
-            yield return InitScripts(); // Ö±½Ó½øÈëÓÎÏ·
+            Debug.Log("æ²¡æœ‰éœ€è¦ä¸‹è½½çš„èµ„æº");
+            yield return InitScripts(); // ç›´æ¥è¿›å…¥æ¸¸æˆ
         }
         else 
         { 
-            // ×¢²á»Øµ÷º¯Êı
+            // æ³¨å†Œå›è°ƒå‡½æ•°
             downloader.DownloadFinishCallback = OnDownloadFinishFunction; 
             downloader.DownloadErrorCallback = OnDownloadErrorFunction;
             downloader.DownloadUpdateCallback = OnDownloadUpdateFunction; 
             downloader.DownloadFileBeginCallback = OnDownloadFileBeginFunction;
-            // ¿ªÊ¼ÏÂÔØ
+            // å¼€å§‹ä¸‹è½½
             downloader.BeginDownload(); yield return downloader;
-            if (downloader.Status == EOperationStatus.Succeed) { Debug.Log("×ÊÔ´ÏÂÔØ³É¹¦"); yield return InitScripts(); }
-            else Debug.LogError("×ÊÔ´ÏÂÔØÊ§°Ü");
+            if (downloader.Status == EOperationStatus.Succeed) { Debug.Log("èµ„æºä¸‹è½½æˆåŠŸ"); yield return InitScripts(); }
+            else Debug.LogError("èµ„æºä¸‹è½½å¤±è´¥");
         } 
     }
 
     void OnDownloadUpdateFunction(DownloadUpdateData data)
     {
         float progress = (float)data.CurrentDownloadBytes / (float)data.TotalDownloadBytes;
-        Debug.Log($"×Ü´óĞ¡: {data.TotalDownloadBytes / 1024.0f / 1024} MB | ÒÑÏÂÔØ: {data.CurrentDownloadBytes / 1024.0f / 1024} MB | ½ø¶È: {progress * 100:F2}%");
+        Debug.Log($"æ€»å¤§å°: {data.TotalDownloadBytes / 1024.0f / 1024} MB | å·²ä¸‹è½½: {data.CurrentDownloadBytes / 1024.0f / 1024} MB | è¿›åº¦: {progress * 100:F2}%");
     }
-    void OnDownloadFileBeginFunction(DownloadFileData data) { Debug.Log($"¿ªÊ¼ÏÂÔØÎÄ¼ş£º{data.FileName}£¬´óĞ¡£º{data.FileSize / 1024.0f} KB"); }
-    void OnDownloadErrorFunction(DownloadErrorData data) { Debug.LogError("ÏÂÔØ´íÎó"); }
-    void OnDownloadFinishFunction(DownloaderFinishData data) { Debug.Log("ÏÂÔØÍê³É"); }
+    void OnDownloadFileBeginFunction(DownloadFileData data) { Debug.Log($"å¼€å§‹ä¸‹è½½æ–‡ä»¶ï¼š{data.FileName}ï¼Œå¤§å°ï¼š{data.FileSize / 1024.0f} KB"); }
+    void OnDownloadErrorFunction(DownloadErrorData data) { Debug.LogError("ä¸‹è½½é”™è¯¯"); }
+    void OnDownloadFinishFunction(DownloaderFinishData data) { Debug.Log("ä¸‹è½½å®Œæˆ"); }
 
     IEnumerator InitScripts()
     {
@@ -165,19 +161,13 @@ public class HotUpdateManager : MonoBehaviour
             yield return www.SendWebRequest();
 
 #if UNITY_2020_1_OR_NEWER
-            if (www.result != UnityWebRequest.Result.Success)
-            {
-                Debug.Log(www.error);
-            }
+            if (www.result != UnityWebRequest.Result.Success) Debug.Log(www.error);
 #else
-            if (www.isHttpError || www.isNetworkError)
-            {
-                Debug.Log(www.error);
-            }
+            if (www.isHttpError || www.isNetworkError) Debug.Log(www.error);
 #endif
             else
             {
-                // Or retrieve results as binary data
+                // ä»¥äºŒè¿›åˆ¶æ•°æ®å½¢å¼æ£€ç´¢ç»“æœ
                 byte[] assetData = www.downloadHandler.data;
                 Debug.Log($"dll:{asset}  size:{assetData.Length}");
                 s_assetDatas[asset] = assetData;
@@ -188,7 +178,7 @@ public class HotUpdateManager : MonoBehaviour
         foreach (var aotDllName in assets)
         {
             byte[] dllBytes = s_assetDatas[aotDllName];
-            // ¼ÓÔØassembly¶ÔÓ¦µÄdll£¬»á×Ô¶¯ÎªËühook¡£Ò»µ©aot·ºĞÍº¯ÊıµÄnativeº¯Êı²»´æÔÚ£¬ÓÃ½âÊÍÆ÷°æ±¾´úÂë
+            // åŠ è½½assemblyå¯¹åº”çš„dllï¼Œä¼šè‡ªåŠ¨ä¸ºå®ƒhookã€‚ä¸€æ—¦aotæ³›å‹å‡½æ•°çš„nativeå‡½æ•°ä¸å­˜åœ¨ï¼Œç”¨è§£é‡Šå™¨ç‰ˆæœ¬ä»£ç 
             LoadImageErrorCode err = RuntimeApi.LoadMetadataForAOTAssembly(dllBytes, mode);
             Debug.Log($"LoadMetadataForAOTAssembly:{aotDllName}. mode:{mode} ret:{err}");
         }
@@ -199,7 +189,7 @@ public class HotUpdateManager : MonoBehaviour
 #else
         _hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
 #endif
-        Debug.Log("×¼±¸½øÈëÓÎÏ·³¡¾°: " + loadSceneName);
+        Debug.Log("å‡†å¤‡è¿›å…¥æ¸¸æˆåœºæ™¯: " + loadSceneName);
         yield return new WaitForSeconds(5f); yield return package.LoadSceneAsync(loadSceneName);
     }
 }
