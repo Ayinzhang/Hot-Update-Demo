@@ -155,7 +155,8 @@ public class HotUpdateManager : MonoBehaviour
     {
         foreach (var asset in assets)
         {
-            string dllPath = $"file://{Application.streamingAssetsPath}/hybridclr/{asset}";
+            string dllPath = $"{Application.streamingAssetsPath}/hybridclr/{asset}";
+            if (!dllPath.Contains("://")) dllPath = "file://" + dllPath;
             Debug.Log($"start DownloadAssets asset:{dllPath}");
             UnityWebRequest www = UnityWebRequest.Get(dllPath);
             yield return www.SendWebRequest();
@@ -184,7 +185,7 @@ public class HotUpdateManager : MonoBehaviour
         }
 #if !UNITY_EDITOR
         //_hotUpdateAss = Assembly.Load(File.ReadAllBytes($"{Application.streamingAssetsPath}/hybridclr/HotUpdate.dll.bytes"));
-        AssetHandle handle = package.LoadAssetAsync<TextAsset>("Assets/Scripts/HotUpdate.dll.bytes");
+        AssetHandle handle = package.LoadAssetAsync<TextAsset>("Assets/Scripts/HotUpdate.dll.bytes"); yield return handle;
         TextAsset textAsset = handle.AssetObject as TextAsset; _hotUpdateAss = Assembly.Load(textAsset.bytes);
 #else
         _hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
