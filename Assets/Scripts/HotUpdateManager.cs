@@ -15,7 +15,7 @@ public class HotUpdateManager : MonoBehaviour
 
     Assembly _hotUpdateAss; ResourcePackage package; 
     Dictionary<string, byte[]> s_assetDatas = new Dictionary<string, byte[]>();
-    List<string> assets { get; } = new List<string>() { "mscorlib.dll.bytes", "System.dll.bytes", "System.Core.dll.bytes", };
+    List<string> assets = new List<string>() { "mscorlib.dll.bytes", "System.dll.bytes", "System.Core.dll.bytes", };
 
     internal class RemoteServices : IRemoteServices
     {
@@ -190,7 +190,17 @@ public class HotUpdateManager : MonoBehaviour
 #else
         _hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
 #endif
+        var prefabs = package.GetAllAssetInfos()
+            .Where(info => info.AssetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            .Select(info => info.AssetPath)
+            .ToList();
+        List<AssetHandle> handles = new List<AssetHandle>();
+        foreach (var prefab in prefabs) handles.Add(package.LoadAssetAsync<GameObject>(prefab));
+        yield return new WaitUntil(() => handles.TrueForAll(h => h.IsDone));
+        foreach (var hd in handles)
+            if (hd.Status == EOperationStatus.Succeed) Debug.Log($"{hd.AssetObject.name} 预热成功");
+            else Debug.LogWarning($"{hd.AssetObject.name} 预热失败");
         Debug.Log("准备进入游戏场景: " + loadSceneName);
-        yield return new WaitForSeconds(5f); yield return package.LoadSceneAsync(loadSceneName);
+        yield return new WaitForSeconds(3f); yield return package.LoadSceneAsync(loadSceneName);
     }
 }
