@@ -26,8 +26,8 @@ Assets
 │ └─ HotUpdateManager.cs   (Hot-update handler entry point)
 │ └─ HotUpdate.dll.bytes      (Hot-update bytecode)
 └─ StreamingAssets   (Assets directly embedded in the AB package)
-├─ yoo                  
-│ └─ ...                 (YooAsset Hot Update Assets)
-└─ hybridclr
-└─ ...                    (HybridCLR AOT Bytecode)
+├─── yoo                  
+│ └─── ...                 (YooAsset Hot Update Assets)
+└─── hybridclr
+└───── ...                    (HybridCLR AOT Bytecode)
 ```
