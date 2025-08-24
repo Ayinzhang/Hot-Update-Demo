@@ -32,7 +32,7 @@ public class HotUpdateManager : MonoBehaviour
 
     IEnumerator InitHotUpdate()
     {
-        InitializationOperation initOperation = null;
+        InitializationOperation initOperation = null; RequestPackageVersionOperation requestOperation = null;
 
         switch (_playMode)
         {
@@ -84,13 +84,14 @@ public class HotUpdateManager : MonoBehaviour
                 // 自定义弱联网模式，无网可游玩有网可更新
                 IRemoteServices customServices = new RemoteServices(defaultHostServer, fallbackHostServer);
 
-                var cutominitParameters = new HostPlayModeParameters();
-                cutominitParameters.BuildinFileSystemParameters = FileSystemParameters.CreateDefaultBuildinFileSystemParameters();
-                cutominitParameters.CacheFileSystemParameters = FileSystemParameters.CreateDefaultCacheFileSystemParameters(customServices);
-                initOperation = package.InitializeAsync(cutominitParameters); yield return initOperation;
+                var customInitParameters = new HostPlayModeParameters();
+                customInitParameters.BuildinFileSystemParameters = FileSystemParameters.CreateDefaultBuildinFileSystemParameters();
+                customInitParameters.CacheFileSystemParameters = FileSystemParameters.CreateDefaultCacheFileSystemParameters(customServices);
+                initOperation = package.InitializeAsync(customInitParameters); yield return initOperation;
+                requestOperation = package.RequestPackageVersionAsync(); yield return requestOperation;
 
-                if (initOperation.Status == EOperationStatus.Succeed) goto hotUpdate;
-                else { Debug.Log("联网尝试失败，启用单机模式"); goto offline; }
+                if (initOperation.Status == EOperationStatus.Succeed && requestOperation.Status == EOperationStatus.Succeed) goto hotUpdate;
+                else { Debug.Log("联网尝试失败，启用单机模式"); yield return package.DestroyAsync(); goto offline; }
         }
 
         // 等待初始化完成
@@ -100,12 +101,12 @@ public class HotUpdateManager : MonoBehaviour
             Debug.LogError($"初始化失败: {initOperation.Error}");
             yield break;
         }
-    hotUpdate:
+
         // 请求最新的资源版本信息
-        var requestOperation = package.RequestPackageVersionAsync();
+        requestOperation = package.RequestPackageVersionAsync();
         Debug.Log("正在请求最新的资源版本...");
         yield return requestOperation;
-
+    hotUpdate:
         string packageVersion = "";
         if (requestOperation.Status == EOperationStatus.Succeed)
         {
